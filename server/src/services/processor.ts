@@ -106,6 +106,7 @@ export const processStats = (
   const appMap: Record<string, number> = {}
   const webMap: Record<string, number> = {}
   const hourlyByCat: Array<Record<string, number>> = Array.from({ length: 24 }, () => ({}))
+  const fragmentationByHour: number[] = Array(24).fill(0)
 
   // ==========================================
   // 1. APPS
@@ -156,6 +157,7 @@ export const processStats = (
       const cat = app === 'Brave Browser' ? getAppCategory('Brave', title) : category
       if (!hourlyByCat[hour][cat]) hourlyByCat[hour][cat] = 0
       hourlyByCat[hour][cat] += duration
+      fragmentationByHour[hour]++
     }
   })
 
@@ -220,6 +222,7 @@ export const processStats = (
     stats: formatList(appMap, 'app'),
     webStats: formatList(webMap, 'web'),
     hourly: hourlyByCat,
+    fragmentation: fragmentationByHour,
     rawWindowEvents: windowEvents, // Сырые события для Timeline/Sankey
     rawWebEvents: webEvents,
     sankeyApp: processSankey(windowEvents, appMap, 'app'),

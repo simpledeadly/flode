@@ -105,7 +105,11 @@ const displayData = computed(() => {
 
         <!-- Нижний блок: Daily Rhythm -->
         <div class="flex-1 p-4 min-h-0">
-          <DailyRhythm :heatmap="heatmapData" :hourly="store.hourly" />
+          <DailyRhythm
+            :heatmap="heatmapData"
+            :hourly="store.hourly"
+            :fragmentation="store.fragmentation"
+          />
         </div>
       </div>
 

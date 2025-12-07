@@ -6,17 +6,18 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { HeatmapChart, BarChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, VisualMapComponent } from 'echarts/components'
 import { useTimeFormatter } from '@/composables/useTimeFormatter'
-import { TableCellsIcon, ChartBarIcon } from '@heroicons/vue/24/solid'
+import { TableCellsIcon, ChartBarIcon, BeakerIcon } from '@heroicons/vue/24/solid'
 
 use([CanvasRenderer, HeatmapChart, BarChart, GridComponent, TooltipComponent, VisualMapComponent])
 
 const props = defineProps<{
   heatmap: { data: [number, number, number][]; categories: string[] }
   hourly: Array<Record<string, number>>
+  fragmentation: number[]
 }>()
 
 const { formatTime } = useTimeFormatter()
-const viewMode = ref<'heatmap' | 'bars'>('heatmap')
+const viewMode = ref<'heatmap' | 'bars' | 'fragmentation'>('heatmap')
 
 // --- Опции для Heatmap ---
 const heatmapOption = computed(() => ({
@@ -124,9 +125,38 @@ const barsOption = computed(() => {
   }
 })
 
-const currentOption = computed(() =>
-  viewMode.value === 'heatmap' ? heatmapOption.value : barsOption.value,
-)
+const fragmentationOption = computed(() => ({
+  backgroundColor: 'transparent',
+  tooltip: {
+    trigger: 'axis',
+    formatter: (params: any) => `${params[0].value} context switches at ${params[0].name}:00`,
+  },
+  grid: { top: '15%', bottom: '15%', left: '5%', right: '5%', containLabel: true },
+  xAxis: {
+    type: 'category',
+    data: Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')),
+  },
+  yAxis: { type: 'value', show: false },
+  visualMap: {
+    min: 0,
+    max: Math.max(...(props.fragmentation || [0]), 50), // Максимум 50 переключений для градиента
+    inRange: { color: ['#22c55e', '#eab308', '#ef4444'] }, // Зеленый -> Желтый -> Красный
+    show: false,
+  },
+  series: [
+    {
+      type: 'bar',
+      data: props.fragmentation,
+      itemStyle: { borderRadius: [4, 4, 0, 0] },
+    },
+  ],
+}))
+
+const currentOption = computed(() => {
+  if (viewMode.value === 'bars') return barsOption.value
+  if (viewMode.value === 'fragmentation') return fragmentationOption.value
+  return heatmapOption.value
+})
 </script>
 
 <template>
@@ -151,6 +181,15 @@ const currentOption = computed(() =>
           "
         >
           <ChartBarIcon class="w-4 h-4" />
+        </button>
+        <button
+          @click="viewMode = 'fragmentation'"
+          class="p-1.5 rounded-md transition-colors"
+          :class="
+            viewMode === 'fragmentation' ? 'bg-[#ff6b00] text-white' : 'text-[#71717a] hover:bg-white/10'
+          "
+        >
+          <BeakerIcon class="w-4 h-4" />
         </button>
       </div>
     </div>

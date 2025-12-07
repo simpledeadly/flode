@@ -20,6 +20,7 @@ export interface ProcessedStats {
   stats: StatItem[]
   webStats: StatItem[]
   hourly: Array<Record<string, number>>
+  fragmentation: number[]
   rawWindowEvents: AWEvent[]
   rawWebEvents: AWEvent[]
   sankeyApp: SankeyData
