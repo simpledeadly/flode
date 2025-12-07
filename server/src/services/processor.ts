@@ -86,7 +86,23 @@ const processSankey = (
   }
 }
 
-export const processStats = (windowEvents: AWEvent[], webEvents: AWEvent[]): ProcessedStats => {
+export const processStats = (
+  initialWindowEvents: AWEvent[], // Переименовали для ясности
+  webEvents: AWEvent[]
+): ProcessedStats => {
+  const windowEvents = initialWindowEvents.filter((event) => {
+    if (!event.data.app) return true // Сохраняем события без имени приложения
+    const app = event.data.app.toLowerCase()
+
+    // Игнорируем системные процессы, если они длятся неоправданно долго (больше 10 минут)
+    const noisyApps = ['loginwindow', 'finder', 'dock', 'window server']
+    if (noisyApps.some((noise) => app.includes(noise)) && event.duration > 600) {
+      return false // Вырезаем это событие
+    }
+
+    return true // Оставляем все остальные события
+  })
+
   const appMap: Record<string, number> = {}
   const webMap: Record<string, number> = {}
   const hourlyByCat: Array<Record<string, number>> = Array.from({ length: 24 }, () => ({}))

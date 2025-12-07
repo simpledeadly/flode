@@ -152,7 +152,7 @@ const pieOption = computed(() => ({
   legend: {
     orient: 'vertical',
     right: 0,
-    top: 'center',
+    top: 'bottom',
     type: 'scroll',
     pageIconColor: '#ff6b00',
     pageTextStyle: { color: '#a1a1aa' },
