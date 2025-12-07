@@ -18,5 +18,12 @@ export default defineConfigWithVueTs(
 
   pluginVue.configs['flat/essential'],
   vueTsConfigs.recommended,
+  {
+    // 👇 ВОТ ЭТОТ БЛОК НУЖНО ДОБАВИТЬ
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      'vue/multi-word-component-names': 'off', // Тоже часто мешает (требует называть файлы MyName.vue)
+    },
+  },
   skipFormatting,
 )
