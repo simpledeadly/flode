@@ -23,18 +23,18 @@ const chartRef = ref<any>(null)
 defineExpose({ chartRef })
 
 // Цвета для категорий (чтобы сайты были цветными)
-const categoryColors: Record<string, string> = {
-  Dev: '#3b82f6',     // Синий
-  AI: '#14b8a6',      // Тиловый (ChatGPT)
-  Social: '#a855f7',  // Фиолетовый
-  Media: '#ef4444',   // Красный
-  Work: '#22c55e',    // Зеленый
-  Design: '#ec4899',  // Розовый
-  Web: '#f97316',     // Оранжевый
-  Search: '#eab308',  // Желтый (Google)
-  Reading: '#8b5cf6', // Светло-фиолетовый (Wiki)
-  System: '#71717a',  // Серый (Finder)
-  Other: '#52525b'    // Темно-серый
+// Внутри <script setup>
+  const categoryColors: Record<string, string> = {
+  Dev: '#3b82f6',     // Синий (VS Code, Cursor, Localhost, GitHub)
+  AI: '#14b8a6',      // Тиловый (ChatGPT, Claude)
+  Social: '#a855f7',  // Фиолетовый (Telegram)
+  Media: '#ef4444',   // Красный (YouTube, Yandex Music)
+  Work: '#22c55e',    // Зеленый (Slack, Zoom)
+  Design: '#ec4899',  // Розовый (Figma)
+  Web: '#f97316',     // Оранжевый (Brave, Chrome)
+  Search: '#eab308',  // Желтый
+  System: '#71717a',  // Серый
+  Other: '#52525b'
 }
 
 const processedData = computed(() => {
