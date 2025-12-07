@@ -1,108 +1,136 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { startOfDay } from 'date-fns'
-import { useStatsStore } from '@/stores/stats' // Наш стор
+import { useStatsStore } from '@/stores/stats'
 import { useTimeFormatter } from '@/composables/useTimeFormatter'
 
-// Импорты компонентов (заменили ~ на @)
-import StatsHeader from '@/components/stats/StatsHeader.vue'
+import StatsToolbar from '@/components/stats/StatsToolbar.vue'
+import StatsMainChart from '@/components/stats/StatsMainChart.vue'
+import StatsHeatmap from '@/components/stats/StatsHeatmap.vue'
+import StatsTable from '@/components/stats/StatsTable.vue'
 import StatsFooter from '@/components/stats/StatsFooter.vue'
-import StatsPieChart from '@/components/stats/StatsPieChart.vue'
-import StatsDetails from '@/components/stats/StatsDetails.vue'
-import BaseCard from '@/components/BaseCard.vue'
 
-// Инициализация
 const store = useStatsStore()
 const { formatTime } = useTimeFormatter()
 
-const selectedRange = ref({
-  start: startOfDay(new Date()),
-  end: new Date(),
-})
-
+const selectedRange = ref({ start: startOfDay(new Date()), end: new Date() })
 const mode = ref<'apps' | 'categories'>('apps')
-const sending = ref(false)
-const pieChartRef = ref<any>(null)
+const mainChartRef = ref<any>(null)
 
-// Следим за изменением даты и загружаем данные
 watch(
   selectedRange,
   (newRange) => {
-    if (newRange.start && newRange.end) {
-      store.fetchStats(newRange.start, newRange.end)
-    }
+    if (newRange.start && newRange.end) store.fetchStats(newRange.start, newRange.end)
   },
   { immediate: true, deep: true },
-) // immediate запустит загрузку при старте
+)
 
 const totalTime = computed(() => {
   if (!store.stats) return '0м'
-  const total = store.stats.reduce((acc, i) => acc + i.value, 0)
-  return formatTime(total)
+  return formatTime(store.stats.reduce((acc, i) => acc + i.value, 0))
 })
 
 const currentData = computed(() => {
   const raw = store.stats || []
   if (mode.value === 'apps') return raw
-
   const groups: Record<string, number> = {}
   raw.forEach((item) => {
-    const cat = item.category || '📦 Прочее'
+    const cat = item.category || '📦 Other'
     groups[cat] = (groups[cat] || 0) + item.value
   })
   return Object.entries(groups)
-    .map(([name, value]) => ({ name, value }))
+    .map(([name, value]) => ({ name, value, category: name }))
     .sort((a, b) => b.value - a.value)
 })
 
 const sendReport = async () => {
-  if (!pieChartRef.value?.chartRef) return
-  sending.value = true
-  try {
-    const base64 = pieChartRef.value.chartRef.getDataURL({
-      type: 'png',
-      pixelRatio: 2,
-      backgroundColor: '#18181b',
-    })
-    await store.sendReport(base64)
-  } finally {
-    sending.value = false
-  }
+  // Логика отправки...
+  if (!mainChartRef.value?.chartRef) return
+  const base64 = mainChartRef.value.chartRef.getDataURL({
+    type: 'png',
+    pixelRatio: 2,
+    backgroundColor: '#18181b',
+  })
+  await store.sendReport(base64)
 }
 </script>
 
 <template>
-  <div>
-    <Transition
-      enter-active-class="transition duration-300 ease-out"
-      enter-from-class="transform -translate-y-2 opacity-0"
-      enter-to-class="transform translate-y-0 opacity-100"
-    >
-      <div
-        v-if="store.error"
-        class="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6 text-sm font-medium flex items-center gap-2"
-      >
-        <span>⚠️</span> <span>Ошибка API: {{ store.error }}</span>
+  <div class="flex flex-col min-h-screen bg-[#09090b]">
+    <StatsToolbar
+      v-model:model-value-range="selectedRange"
+      v-model:model-value-mode="mode"
+      :total-time="totalTime"
+      :loading="store.loading"
+    />
+
+    <div class="flex-1 p-4 md:p-6 flex flex-col gap-6">
+      <!-- ВЕРХНИЙ РЯД: График + Heatmap -->
+      <!-- Задаем фиксированную высоту 450px, чтобы интерфейс был стабильным -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-auto lg:h-[450px]">
+        <!-- Главный график (8 колонок) -->
+        <div class="lg:col-span-8 2xl:col-span-9 h-full">
+          <StatsMainChart ref="mainChartRef" :data="currentData" :loading="store.loading" />
+        </div>
+
+        <!-- Правая колонка (4 колонки): Heatmap + Заглушка -->
+        <div class="lg:col-span-4 2xl:col-span-3 flex flex-col gap-6 h-full">
+          <!-- Heatmap (60% высоты) -->
+          <div style="flex: 3" class="min-h-0">
+            <StatsHeatmap :data="store.hourly" />
+          </div>
+
+          <!-- Productivity Trend / Efficiency (40% высоты) -->
+          <div
+            style="flex: 2"
+            class="min-h-0 bg-[#18181b] border border-white/5 rounded-2xl p-4 relative overflow-hidden flex flex-col justify-center"
+          >
+            <div class="z-10 relative px-2">
+              <div class="text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">
+                Productivity Score
+              </div>
+
+              <!-- Реальное значение -->
+              <div class="text-4xl font-bold text-white tracking-tighter">
+                {{ store.efficiency }}%
+              </div>
+
+              <!-- Динамический текст -->
+              <div class="text-[10px] text-[#71717a] mt-2">
+                {{
+                  store.efficiency > 70
+                    ? 'Отличная работа! 🔥'
+                    : store.efficiency > 40
+                      ? 'Неплохо, но можно лучше'
+                      : 'Слишком много отвлекаешься 👀'
+                }}
+              </div>
+            </div>
+
+            <!-- Фон-график -->
+            <div class="absolute right-0 bottom-0 opacity-20 translate-y-2 translate-x-2">
+              <svg width="140" height="70" viewBox="0 0 120 60" fill="none">
+                <!-- Меняем цвет графика в зависимости от эффективности -->
+                <path
+                  d="M0 60 L40 40 L80 50 L120 10 V60 H0 Z"
+                  :fill="store.efficiency > 50 ? '#a855f7' : '#ef4444'"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
       </div>
-    </Transition>
 
-    <BaseCard class="flex-1 flex flex-col">
-      <template #header>
-        <StatsHeader
-          v-model:model-value-range="selectedRange"
-          v-model:model-value-mode="mode"
-          :total-time="totalTime"
-          :app-count="currentData.length"
-          :loading="store.loading"
-        />
-      </template>
+      <!-- НИЖНИЙ РЯД: Таблица -->
+      <div class="pb-10">
+        <h3 class="text-xs font-bold text-[#52525b] uppercase tracking-widest mb-4 px-1">
+          Detailed Log
+        </h3>
+        <StatsTable :data="currentData" />
+      </div>
 
-      <StatsPieChart ref="pieChartRef" :data="currentData" :loading="store.loading" />
-      <StatsDetails :data="currentData" />
-
-      <template #footer>
-        <StatsFooter :loading="sending" @send-report="sendReport" />
-      </template>
-    </BaseCard>
+      <!-- Footer -->
+      <StatsFooter @send-report="sendReport" :loading="false" />
+    </div>
   </div>
 </template>

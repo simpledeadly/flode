@@ -1,9 +1,7 @@
-// client/src/stores/stats.ts
 import { defineStore } from 'pinia'
 import axios from 'axios'
 import { ref } from 'vue'
 
-// 1. Описываем, как выглядит наша статистика
 export interface StatItem {
   name: string
   value: number
@@ -11,8 +9,9 @@ export interface StatItem {
 }
 
 export const useStatsStore = defineStore('stats', () => {
-  // 2. Используем этот тип вместо any
   const stats = ref<StatItem[]>([])
+  const hourly = ref<number[]>(new Array(24).fill(0))
+  const efficiency = ref<number>(0) // <-- Новое поле
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -21,18 +20,26 @@ export const useStatsStore = defineStore('stats', () => {
     error.value = null
 
     try {
-      // 3. Указываем строгий тип для параметров
-      const params: Record<string, string> = {}
-
+      const params: any = {}
       if (start) params.start = start.toISOString()
       if (end) params.end = end.toISOString()
 
-      const response = await axios.get<StatItem[]>('http://localhost:3000/api/stats', { params })
-      stats.value = response.data
+      const response = await axios.get('http://localhost:3000/api/stats', { params })
+      const data = response.data
+
+      // Разбор ответа
+      if (data && !Array.isArray(data)) {
+        stats.value = data.stats || []
+        hourly.value = data.hourly || new Array(24).fill(0)
+        efficiency.value = data.efficiency || 0 // Получаем эффективность
+      } else {
+        stats.value = []
+        hourly.value = new Array(24).fill(0)
+        efficiency.value = 0
+      }
     } catch (e) {
-      // Ошибку приводим к типу Error или unknown
-      console.error('Ошибка загрузки:', e)
-      error.value = 'Не удалось загрузить статистику'
+      console.error(e)
+      error.value = 'Ошибка API'
     } finally {
       loading.value = false
     }
@@ -40,15 +47,13 @@ export const useStatsStore = defineStore('stats', () => {
 
   async function sendReport(imageBase64: string) {
     try {
-      await axios.post('http://localhost:3000/api/telegram', {
-        image: imageBase64,
-      })
-      alert('Отчет успешно отправлен в Telegram! ✈️')
+      await axios.post('http://localhost:3000/api/telegram', { image: imageBase64 })
+      // alert('Отчет отправлен!')
     } catch (e) {
       console.error(e)
       alert('Ошибка отправки отчета ❌')
     }
   }
 
-  return { stats, loading, error, fetchStats, sendReport }
+  return { stats, hourly, efficiency, loading, error, fetchStats, sendReport }
 })
