@@ -16,11 +16,22 @@
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
+    "@heroicons/vue": "^2.2.0",
+    "axios": "^1.13.2",
+    "cors": "^2.8.5",
+    "date-fns": "^2.30.0",
+    "dotenv": "^17.2.3",
+    "echarts": "^6.0.0",
+    "express": "^5.2.1",
     "pinia": "^3.0.4",
+    "telegraf": "^4.16.3",
+    "v-calendar": "^3.1.2",
     "vue": "^3.5.25",
+    "vue-echarts": "^8.0.1",
     "vue-router": "^4.6.3"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.17",
     "@tsconfig/node24": "^24.0.3",
     "@types/node": "^24.10.1",
     "@vitejs/plugin-vue": "^6.0.2",
