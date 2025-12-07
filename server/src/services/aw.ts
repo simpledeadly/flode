@@ -3,65 +3,82 @@ import { CONFIG } from '../config.js'
 import { AWEvent } from '../types.js'
 
 export class AWService {
-  private async getBuckets() {
-    const { data } = await axios.get(`${CONFIG.AW_URL}/buckets`)
-    return Object.keys(data)
+  /**
+   * Получаем словарь всех бакетов с их метаданными.
+   */
+  private async getBucketsMap() {
+    try {
+      const { data } = await axios.get(`${CONFIG.AW_URL}/buckets`)
+      return data // Возвращает объект: { "bucket-id": { type: "...", ... }, ... }
+    } catch (e) {
+      console.error('⚠️ AW Error: Could not fetch buckets')
+      return {}
+    }
   }
 
-  private buildSimpleQuery(bucketId: string) {
-    return `events = query_bucket("${bucketId}"); RETURN = events;`
+  /**
+   * Прямой запрос событий (самый надежный метод)
+   */
+  private async fetchEventsFromBucket(
+    bucketId: string,
+    start: string,
+    end: string
+  ): Promise<AWEvent[]> {
+    try {
+      const { data } = await axios.get(`${CONFIG.AW_URL}/buckets/${bucketId}/events`, {
+        params: {
+          start: start,
+          end: end,
+          limit: -1,
+        },
+      })
+      return Array.isArray(data) ? data : []
+    } catch (e: any) {
+      return []
+    }
   }
 
   public async getData(
     start: string,
     end: string
   ): Promise<{ windowEvents: AWEvent[]; webEvents: AWEvent[] }> {
-    const buckets = await this.getBuckets()
+    console.log(`📡 Fetching Data: ${start} -> ${end}`)
 
-    // 1. Ищем бакеты
-    const windowBucket = buckets.find((b) => b.includes('aw-watcher-window'))
+    const bucketsMap = await this.getBucketsMap()
+    const bucketIds = Object.keys(bucketsMap)
 
-    // 🔥 Ищем ВСЕ веб бакеты
-    const webBuckets = buckets.filter((b) => b.includes('aw-watcher-web'))
+    // 1. Ищем бакет Окон (обычно по типу "app.window.active" или имени)
+    const windowBucketId = bucketIds.find(
+      (id) => id.includes('aw-watcher-window') || bucketsMap[id].type === 'app.window.active'
+    )
 
-    console.log(`📦 Sources: Window=[${windowBucket}], Web=[${webBuckets.length} buckets]`)
+    // 2. Ищем бакеты Веба (ПО ТИПУ, а не только по имени)
+    // Стандартный тип для веба: 'web.tab.current'
+    const webBucketIds = bucketIds.filter((id) => {
+      const type = bucketsMap[id].type || ''
+      return type.includes('web.tab.current') || id.includes('aw-watcher-web')
+    })
 
-    if (!windowBucket) return { windowEvents: [], webEvents: [] }
+    // Логируем, куда именно мы стучимся, чтобы понять причину нулей
+    console.log(`📦 Targets:`)
+    console.log(`   🪟 Window: ${windowBucketId || 'NOT FOUND'}`)
+    console.log(`   🌍 Web:    ${webBucketIds.join(', ') || 'NONE'}`)
 
-    // 2. Запрашиваем Окна
+    // 3. Запрос Окон
     let windowEvents: AWEvent[] = []
-    try {
-      const query = this.buildSimpleQuery(windowBucket)
-      const { data } = await axios.post(`${CONFIG.AW_URL}/query`, {
-        query: [query],
-        timeperiods: [`${start}/${end}`],
-      })
-      windowEvents = data[0] || []
-      console.log(`✅ Window Events: ${windowEvents.length}`)
-    } catch (e) {
-      console.error('Window query error')
+    if (windowBucketId) {
+      windowEvents = await this.fetchEventsFromBucket(windowBucketId, start, end)
     }
 
-    // 3. Запрашиваем Веб (со всех бакетов)
+    // 4. Запрос Веба (параллельно)
     let webEvents: AWEvent[] = []
-    if (webBuckets.length > 0) {
-      try {
-        const queries = webBuckets.map((b) => this.buildSimpleQuery(b))
-        const { data: results } = await axios.post(`${CONFIG.AW_URL}/query`, {
-          query: queries,
-          timeperiods: [`${start}/${end}`],
-        })
-
-        // Объединяем результаты
-        results.forEach((res: any) => {
-          if (Array.isArray(res)) webEvents = webEvents.concat(res)
-        })
-
-        console.log(`✅ Web Events (Merged): ${webEvents.length}`)
-      } catch (e: any) {
-        console.warn('Web query error:', e.message)
-      }
+    if (webBucketIds.length > 0) {
+      const promises = webBucketIds.map((id) => this.fetchEventsFromBucket(id, start, end))
+      const results = await Promise.all(promises)
+      webEvents = results.flat()
     }
+
+    console.log(`✅ Results: Window=${windowEvents.length}, Web=${webEvents.length}`)
 
     return { windowEvents, webEvents }
   }
