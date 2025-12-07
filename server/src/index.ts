@@ -24,10 +24,10 @@ app.get('/api/stats', async (req, res) => {
     console.log(`➡️ Request: ${startTime} -> ${endTime}`)
 
     // 1. Получаем сырые данные (со всех бакетов!)
-    const { windowEvents, webEvents } = await awService.getData(startTime, endTime)
+    const { windowEvents, webEvents, inputEvents } = await awService.getData(startTime, endTime)
 
     // 2. Обрабатываем их
-    const result = processStats(windowEvents, webEvents)
+    const result = processStats(windowEvents, webEvents, inputEvents)
 
     console.log(`⬅️ Response: Apps=${result.stats.length}, Web=${result.webStats.length}`)
     res.json(result)

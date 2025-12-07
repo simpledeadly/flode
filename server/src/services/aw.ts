@@ -3,22 +3,16 @@ import { CONFIG } from '../config.js'
 import { AWEvent } from '../types.js'
 
 export class AWService {
-  /**
-   * Получаем словарь всех бакетов с их метаданными.
-   */
   private async getBucketsMap() {
     try {
       const { data } = await axios.get(`${CONFIG.AW_URL}/buckets`)
-      return data // Возвращает объект: { "bucket-id": { type: "...", ... }, ... }
+      return data
     } catch (e) {
       console.error('⚠️ AW Error: Could not fetch buckets')
       return {}
     }
   }
 
-  /**
-   * Прямой запрос событий (самый надежный метод)
-   */
   private async fetchEventsFromBucket(
     bucketId: string,
     start: string,
@@ -26,11 +20,7 @@ export class AWService {
   ): Promise<AWEvent[]> {
     try {
       const { data } = await axios.get(`${CONFIG.AW_URL}/buckets/${bucketId}/events`, {
-        params: {
-          start: start,
-          end: end,
-          limit: -1,
-        },
+        params: { start, end, limit: -1 },
       })
       return Array.isArray(data) ? data : []
     } catch (e: any) {
@@ -41,46 +31,46 @@ export class AWService {
   public async getData(
     start: string,
     end: string
-  ): Promise<{ windowEvents: AWEvent[]; webEvents: AWEvent[] }> {
+  ): Promise<{ windowEvents: AWEvent[]; webEvents: AWEvent[]; inputEvents: AWEvent[] }> {
     console.log(`📡 Fetching Data: ${start} -> ${end}`)
 
     const bucketsMap = await this.getBucketsMap()
     const bucketIds = Object.keys(bucketsMap)
 
-    // 1. Ищем бакет Окон (обычно по типу "app.window.active" или имени)
-    const windowBucketId = bucketIds.find(
-      (id) => id.includes('aw-watcher-window') || bucketsMap[id].type === 'app.window.active'
-    )
+    // 1. Ищем бакеты по их назначению
+    const windowBucketId = bucketIds.find((id) => id.includes('aw-watcher-window'))
+    const webBucketIds = bucketIds.filter((id) => id.includes('aw-watcher-web'))
+    const inputBucketId = bucketIds.find((id) => id.includes('aw-watcher-input'))
 
-    // 2. Ищем бакеты Веба (ПО ТИПУ, а не только по имени)
-    // Стандартный тип для веба: 'web.tab.current'
-    const webBucketIds = bucketIds.filter((id) => {
-      const type = bucketsMap[id].type || ''
-      return type.includes('web.tab.current') || id.includes('aw-watcher-web')
-    })
-
-    // Логируем, куда именно мы стучимся, чтобы понять причину нулей
     console.log(`📦 Targets:`)
     console.log(`   🪟 Window: ${windowBucketId || 'NOT FOUND'}`)
     console.log(`   🌍 Web:    ${webBucketIds.join(', ') || 'NONE'}`)
+    console.log(`   ⌨️ Input:  ${inputBucketId || 'NOT FOUND'}`)
 
-    // 3. Запрос Окон
-    let windowEvents: AWEvent[] = []
-    if (windowBucketId) {
-      windowEvents = await this.fetchEventsFromBucket(windowBucketId, start, end)
-    }
+    // 2. 🔥 ФИКС ЗДЕСЬ: Создаем промисы и выполняем их через Promise.all для максимальной скорости и безопасности типов
+    const windowPromise = windowBucketId
+      ? this.fetchEventsFromBucket(windowBucketId, start, end)
+      : Promise.resolve([])
+    const webPromises = webBucketIds.map((id) => this.fetchEventsFromBucket(id, start, end))
+    const inputPromise = inputBucketId
+      ? this.fetchEventsFromBucket(inputBucketId, start, end)
+      : Promise.resolve([])
 
-    // 4. Запрос Веба (параллельно)
-    let webEvents: AWEvent[] = []
-    if (webBucketIds.length > 0) {
-      const promises = webBucketIds.map((id) => this.fetchEventsFromBucket(id, start, end))
-      const results = await Promise.all(promises)
-      webEvents = results.flat()
-    }
+    // Ждем выполнения всех запросов
+    const [windowEvents, webEventsNested, inputEvents] = await Promise.all([
+      windowPromise,
+      Promise.all(webPromises), // Важно: Promise.all для массива промисов
+      inputPromise,
+    ])
 
-    console.log(`✅ Results: Window=${windowEvents.length}, Web=${webEvents.length}`)
+    // Объединяем результаты из нескольких веб-бакетов
+    const webEvents = webEventsNested.flat()
 
-    return { windowEvents, webEvents }
+    console.log(
+      `✅ Results: Window=${windowEvents.length}, Web=${webEvents.length}, Input=${inputEvents.length}`
+    )
+
+    return { windowEvents, webEvents, inputEvents }
   }
 }
 

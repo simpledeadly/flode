@@ -88,7 +88,8 @@ const processSankey = (
 
 export const processStats = (
   initialWindowEvents: AWEvent[], // Переименовали для ясности
-  webEvents: AWEvent[]
+  webEvents: AWEvent[],
+  inputEvents: AWEvent[]
 ): ProcessedStats => {
   const windowEvents = initialWindowEvents.filter((event) => {
     if (!event.data.app) return true // Сохраняем события без имени приложения
@@ -107,6 +108,7 @@ export const processStats = (
   const webMap: Record<string, number> = {}
   const hourlyByCat: Array<Record<string, number>> = Array.from({ length: 24 }, () => ({}))
   const fragmentationByHour: number[] = Array(24).fill(0)
+  const intensityByHour: number[] = Array(24).fill(0)
 
   // ==========================================
   // 1. APPS
@@ -160,6 +162,32 @@ export const processStats = (
       fragmentationByHour[hour]++
     }
   })
+
+  webEvents.forEach((evt) => {
+    const domain = getDomainFromUrl(evt.data.url || '')
+    if (!domain) return
+
+    const date = new Date(evt.timestamp)
+    const hour = date.getHours()
+    if (hour >= 0 && hour < 24) {
+      const cat = getDomainCategory(domain)
+      if (!hourlyByCat[hour][cat]) hourlyByCat[hour][cat] = 0
+      hourlyByCat[hour][cat] += evt.duration || 5
+      // fragmentationByHour[hour]++
+    }
+  })
+
+  if (inputEvents && inputEvents.length > 0) {
+    inputEvents.forEach((event) => {
+      const hour = new Date(event.timestamp).getHours()
+      if (hour >= 0 && hour < 24) {
+        // Ищем `presses` и `clicks` из ТВОИХ реальных данных
+        if (event.data && (event.data.presses || event.data.clicks)) {
+          intensityByHour[hour] += (event.data.presses || 0) + (event.data.clicks || 0)
+        }
+      }
+    })
+  }
 
   // ==========================================
   // 2. WEB
@@ -223,6 +251,8 @@ export const processStats = (
     webStats: formatList(webMap, 'web'),
     hourly: hourlyByCat,
     fragmentation: fragmentationByHour,
+    intensity: intensityByHour,
+    rawInputEvents: inputEvents,
     rawWindowEvents: windowEvents, // Сырые события для Timeline/Sankey
     rawWebEvents: webEvents,
     sankeyApp: processSankey(windowEvents, appMap, 'app'),

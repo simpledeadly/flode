@@ -21,6 +21,8 @@ export interface ProcessedStats {
   webStats: StatItem[]
   hourly: Array<Record<string, number>>
   fragmentation: number[]
+  intensity: number[]
+  rawInputEvents: AWEvent[]
   rawWindowEvents: AWEvent[]
   rawWebEvents: AWEvent[]
   sankeyApp: SankeyData

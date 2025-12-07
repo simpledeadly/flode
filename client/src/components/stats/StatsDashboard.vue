@@ -109,6 +109,7 @@ const displayData = computed(() => {
             :heatmap="heatmapData"
             :hourly="store.hourly"
             :fragmentation="store.fragmentation"
+            :intensity="store.intensity"
           />
         </div>
       </div>

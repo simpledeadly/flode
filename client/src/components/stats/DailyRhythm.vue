@@ -6,7 +6,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { HeatmapChart, BarChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, VisualMapComponent } from 'echarts/components'
 import { useTimeFormatter } from '@/composables/useTimeFormatter'
-import { TableCellsIcon, ChartBarIcon, BeakerIcon } from '@heroicons/vue/24/solid'
+import { TableCellsIcon, ChartBarIcon, BeakerIcon, FireIcon } from '@heroicons/vue/24/solid'
 
 use([CanvasRenderer, HeatmapChart, BarChart, GridComponent, TooltipComponent, VisualMapComponent])
 
@@ -14,10 +14,11 @@ const props = defineProps<{
   heatmap: { data: [number, number, number][]; categories: string[] }
   hourly: Array<Record<string, number>>
   fragmentation: number[]
+  intensity: number[]
 }>()
 
 const { formatTime } = useTimeFormatter()
-const viewMode = ref<'heatmap' | 'bars' | 'fragmentation'>('heatmap')
+const viewMode = ref<'heatmap' | 'bars' | 'fragmentation' | 'intensity'>('heatmap')
 
 // --- Опции для Heatmap ---
 const heatmapOption = computed(() => ({
@@ -152,9 +153,42 @@ const fragmentationOption = computed(() => ({
   ],
 }))
 
+const intensityOption = computed(() => ({
+  backgroundColor: 'transparent',
+  tooltip: {
+    trigger: 'axis',
+    formatter: (params: any) =>
+      `~ ${params[0].value} actions (clicks & keys) at ${params[0].name}:00`,
+  },
+  grid: { top: '15%', bottom: '15%', left: '5%', right: '5%', containLabel: true },
+  xAxis: {
+    type: 'category',
+    data: Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')),
+    axisLine: { show: false },
+    axisTick: { show: false },
+    axisLabel: { color: '#71717a' },
+  },
+  yAxis: { type: 'value', show: false, splitLine: { show: false } },
+  visualMap: {
+    min: 0,
+    max: Math.max(...(props.intensity || [0]), 1000),
+    inRange: { color: ['#1e3a8a', '#3b82f6', '#facc15', '#ef4444', '#f87171'] }, // Холодный -> Горячий -> Огненный
+    show: false,
+  },
+  series: [
+    {
+      type: 'bar',
+      data: props.intensity || [],
+      itemStyle: { borderRadius: [2, 2, 0, 0] },
+      barMaxWidth: '80%',
+    },
+  ],
+}))
+
 const currentOption = computed(() => {
   if (viewMode.value === 'bars') return barsOption.value
   if (viewMode.value === 'fragmentation') return fragmentationOption.value
+  if (viewMode.value === 'intensity') return intensityOption.value
   return heatmapOption.value
 })
 </script>
@@ -186,10 +220,24 @@ const currentOption = computed(() => {
           @click="viewMode = 'fragmentation'"
           class="p-1.5 rounded-md transition-colors"
           :class="
-            viewMode === 'fragmentation' ? 'bg-[#ff6b00] text-white' : 'text-[#71717a] hover:bg-white/10'
+            viewMode === 'fragmentation'
+              ? 'bg-[#ff6b00] text-white'
+              : 'text-[#71717a] hover:bg-white/10'
           "
         >
           <BeakerIcon class="w-4 h-4" />
+        </button>
+        <button
+          @click="viewMode = 'intensity'"
+          title="Intensity"
+          class="p-1.5 rounded-md transition-colors"
+          :class="
+            viewMode === 'intensity'
+              ? 'bg-[#ff6b00] text-white'
+              : 'text-[#71717a] hover:bg-white/10'
+          "
+        >
+          <FireIcon class="w-4 h-4" />
         </button>
       </div>
     </div>

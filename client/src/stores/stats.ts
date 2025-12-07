@@ -48,6 +48,8 @@ export const useStatsStore = defineStore('stats', () => {
   const webStats = ref<StatItem[]>([])
   const hourly = ref<Array<Record<string, number>>>(new Array(24).fill({}))
   const fragmentation = ref<number[]>([])
+  const intensity = ref<number[]>([])
+  const rawInputEvents = ref<AWEvent[]>([])
   const rawAppEvents = ref<AWEvent[]>([])
   const rawWebEvents = ref<AWEvent[]>([])
   const sankeyApp = ref<SankeyData | null>(null)
@@ -71,6 +73,8 @@ export const useStatsStore = defineStore('stats', () => {
       webStats.value = data.webStats || []
       hourly.value = data.hourly || []
       fragmentation.value = data.fragmentation || []
+      intensity.value = data.intensity || []
+      rawInputEvents.value = data.rawInputEvents || []
       rawAppEvents.value = data.rawWindowEvents || []
       rawWebEvents.value = data.rawWebEvents || []
       sankeyApp.value = data.sankeyApp
@@ -102,6 +106,8 @@ export const useStatsStore = defineStore('stats', () => {
     webStats,
     hourly,
     fragmentation,
+    intensity,
+    rawInputEvents,
     loading,
     error,
     rawAppEvents,
