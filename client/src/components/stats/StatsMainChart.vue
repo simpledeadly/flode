@@ -247,49 +247,40 @@ const currentOption = computed(() => {
 </script>
 
 <template>
-  <div
-    class="flex flex-col h-full bg-[#18181b] rounded-2xl border border-white/5 p-6 relative group"
-  >
-    <!-- Переключатель типов графика (всплывает при наведении или всегда виден) -->
+  <!-- Контейнер теперь один, без лишних вложенностей -->
+  <div class="flex flex-col h-full bg-[#18181b] rounded-2xl border border-white/5 relative p-6">
+    <!-- Переключатель типов графика -->
     <div class="absolute top-6 right-6 z-20 flex bg-[#27272a] p-1 rounded-lg border border-white/5">
       <BaseButton
-        @click="chartType = 'pie'"
-        variant="secondary"
+        v-for="type in ['pie', 'rose', 'treemap'] as const"
+        :key="type"
+        @click="chartType = type"
         class="p-2 rounded-md transition-all hover:bg-white/10"
-        :class="chartType === 'pie' ? 'bg-[#ff6b00] text-white shadow-lg' : 'text-[#71717a]'"
-        title="Donut Chart"
-      >
-        <ChartPieIcon class="w-4 h-4" />
-      </BaseButton>
-      <BaseButton
-        @click="chartType = 'rose'"
         variant="secondary"
-        class="p-2 rounded-md transition-all hover:bg-white/10"
-        :class="chartType === 'rose' ? 'bg-[#ff6b00] text-white shadow-lg' : 'text-[#71717a]'"
-        title="Rose Chart"
+        :class="chartType === type ? 'bg-[#ff6b00] text-white shadow-lg' : 'text-[#71717a]'"
+        :title="`${type.charAt(0).toUpperCase() + type.slice(1)} Chart`"
       >
-        <LifebuoyIcon class="w-4 h-4" />
-      </BaseButton>
-      <BaseButton
-        @click="chartType = 'treemap'"
-        variant="secondary"
-        class="p-2 rounded-md transition-all hover:bg-white/10"
-        :class="chartType === 'treemap' ? 'bg-[#ff6b00] text-white shadow-lg' : 'text-[#71717a]'"
-        title="Treemap"
-      >
-        <Squares2X2Icon class="w-4 h-4" />
+        <component
+          :is="{ pie: ChartPieIcon, rose: LifebuoyIcon, treemap: Squares2X2Icon }[type]"
+          class="w-4 h-4"
+        />
       </BaseButton>
     </div>
 
-    <!-- Заголовок -->
-    <h3
-      class="absolute top-6 left-1/2 -translate-x-1/2 text-xs font-bold text-[#52525b] uppercase tracking-widest pointer-events-none"
-    >
+    <!-- Заголовок (был в центре, теперь слева для чистоты) -->
+    <h3 class="text-xs font-bold text-[#52525b] uppercase tracking-widest pointer-events-none mb-4">
       Activity Distribution
     </h3>
 
-    <div class="flex-1 w-full relative min-h-0 mt-4">
-      <v-chart ref="chartRef" :option="currentOption" autoresize class="w-full h-full" />
+    <div class="flex-1 w-full relative min-h-0">
+      <!-- 🔥 ВОТ ФИКС: :key="chartType" полностью перерисовывает график -->
+      <v-chart
+        ref="chartRef"
+        :key="chartType"
+        :option="currentOption"
+        autoresize
+        class="w-full h-full"
+      />
 
       <div
         v-if="loading"
