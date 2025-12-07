@@ -12,6 +12,7 @@ use([CanvasRenderer, PieChart, BarChart, GridComponent, TooltipComponent, Legend
 
 const props = defineProps<{
   data: Array<{ name: string; value: number; category?: string }>
+  webData?: Array<{ name: string; value: number }>
   loading: boolean
 }>()
 
@@ -21,79 +22,132 @@ const chartRef = ref<any>(null)
 
 defineExpose({ chartRef })
 
-// --- УМНАЯ ПОДГОТОВКА ДАННЫХ ---
-const processedData = computed(() => {
-  // Берем топ-9 приложений
-  const top = props.data.slice(0, 11)
-  // Остальные складываем в "Other"
-  const others = props.data.slice(9)
+// Цвета для категорий (чтобы сайты были цветными)
+const categoryColors: Record<string, string> = {
+  Dev: '#3b82f6',     // Синий
+  AI: '#14b8a6',      // Тиловый (ChatGPT)
+  Social: '#a855f7',  // Фиолетовый
+  Media: '#ef4444',   // Красный
+  Work: '#22c55e',    // Зеленый
+  Design: '#ec4899',  // Розовый
+  Web: '#f97316',     // Оранжевый
+  Search: '#eab308',  // Желтый (Google)
+  Reading: '#8b5cf6', // Светло-фиолетовый (Wiki)
+  System: '#71717a',  // Серый (Finder)
+  Other: '#52525b'    // Темно-серый
+}
 
-  if (others.length > 0) {
-    const otherValue = others.reduce((acc, curr) => acc + curr.value, 0)
-    return [...top, { name: 'Прочее', value: otherValue, category: 'Other' }]
-  }
-  return top
+const processedData = computed(() => {
+  const top = props.data.slice(0, 9)
+  const others = props.data.slice(9)
+  const result =
+    others.length > 0
+      ? [
+          ...top,
+          { name: 'Прочее', value: others.reduce((a, c) => a + c.value, 0), category: 'Other' },
+        ]
+      : top
+
+  // Добавляем цвет в данные, чтобы ECharts его подхватил
+  return result.map((item) => ({
+    ...item,
+    itemStyle: {
+      color: categoryColors[item.category || 'Other'] || '#71717a',
+      borderColor: '#18181b',
+      borderWidth: 2,
+    },
+  }))
 })
 
-// ОПЦИИ ДЛЯ PIE
+// Генератор списка сайтов для тултипа
+const getWebTooltip = () => {
+  if (!props.webData || props.webData.length === 0) return ''
+  // Берем топ-5 сайтов
+  const topSites = props.webData.slice(0, 5)
+  let html =
+    '<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1);">'
+  html +=
+    '<div style="font-size: 9px; color: #71717a; text-transform: uppercase; font-weight: 700; margin-bottom: 6px;">Active Tabs</div>'
+  topSites.forEach((site) => {
+    html += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 11px;">
+             <span style="color: #d4d4d8;">${site.name}</span>
+             <span style="color: #a1a1aa; font-family: monospace;">${formatTime(site.value)}</span>
+          </div>`
+  })
+  html += '</div>'
+  return html
+}
+
 const pieOption = computed(() => ({
   backgroundColor: 'transparent',
   tooltip: {
     trigger: 'item',
-    backgroundColor: 'rgba(9, 9, 11, 0.9)',
+    backgroundColor: 'rgba(9, 9, 11, 0.95)',
     borderColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
     padding: 0,
     extraCssText:
-      'backdrop-filter: blur(8px); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);',
-    formatter: (params: any) => `
-      <div style="padding: 10px 14px; font-family: 'Inter', sans-serif;">
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-          <div style="width: 8px; height: 8px; border-radius: 50%; background-color: ${params.color}; box-shadow: 0 0 8px ${params.color};"></div>
-          <span style="font-size: 12px; color: #a1a1aa; font-weight: 500;">${params.name}</span>
-        </div>
-        <div style="display: flex; align-items: baseline; gap: 12px;">
-          <span style="font-size: 16px; font-weight: 700; color: #fff;">${formatTime(params.value)}</span>
-          <span style="font-size: 12px; color: #ff6b00; font-weight: 600;">${params.percent}%</span>
-        </div>
-      </div>
-    `,
+      'backdrop-filter: blur(12px); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.6);',
+    formatter: (params: any) => {
+      const isBrowser =
+        params.name.toLowerCase().includes('brave') ||
+        params.name.toLowerCase().includes('chrome') ||
+        params.name.toLowerCase().includes('web')
+
+      let content = `
+            <div style="padding: 16px; font-family: 'Inter', sans-serif; min-width: 200px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <div style="width: 10px; height: 10px; border-radius: 50%; background-color: ${params.color}; box-shadow: 0 0 10px ${params.color};"></div>
+                <span style="font-size: 14px; color: #fff; font-weight: 600;">${params.name}</span>
+              </div>
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px;">
+                <span style="font-size: 20px; font-weight: 800; color: #fff; letter-spacing: -0.5px;">${formatTime(params.value)}</span>
+                <span style="font-size: 12px; color: ${params.color}; font-weight: 700; background: ${params.color}20; padding: 2px 6px; border-radius: 4px;">${params.percent}%</span>
+              </div>
+          `
+
+      // 🔥 ВОТ ОНО: Если навели на Браузер, показываем сайты!
+      if (isBrowser) {
+        content += getWebTooltip()
+      }
+
+      content += `</div>`
+      return content
+    },
   },
   legend: {
     orient: 'vertical',
     right: 0,
     top: 'center',
     type: 'scroll',
-    textStyle: { color: '#a1a1aa' },
     pageIconColor: '#ff6b00',
     pageTextStyle: { color: '#a1a1aa' },
+    textStyle: { color: '#a1a1aa', fontSize: 12, fontFamily: 'Inter' },
+    formatter: (name: string) => (name.length > 20 ? name.substr(0, 20) + '...' : name),
   },
   series: [
     {
       type: 'pie',
-      radius: ['45%', '75%'],
-      center: ['40%', '50%'], // Сдвигаем влево, чтобы легенда влезла справа
-      itemStyle: { borderRadius: 5, borderColor: '#18181b', borderWidth: 2 },
-      label: { show: false }, // Убираем линии с подписями, они создают хаос
-      data: processedData.value, // Используем сгруппированные данные
+      radius: ['45%', '70%'],
+      center: ['35%', '50%'],
+      itemStyle: { borderRadius: 4, borderColor: '#18181b', borderWidth: 2 },
+      label: { show: false },
+      data: processedData.value,
     },
   ],
 }))
 
-// ОПЦИИ ДЛЯ BAR
+// BarChart с цветами
 const barOption = computed(() => {
-  const dataReversed = [...processedData.value].reverse() // Чтобы топ был сверху
+  const dataReversed = [...processedData.value].reverse()
   return {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(9, 9, 11, 0.9)',
+      axisPointer: { type: 'shadow' },
+      backgroundColor: 'rgba(24, 24, 27, 0.95)',
       borderColor: '#3f3f46',
       textStyle: { color: '#e4e4e7' },
-      formatter: (params: any) => {
-        const item = params[0]
-        return `${item.marker} <b>${item.name}</b><br/>${formatTime(item.value)}`
-      },
     },
     grid: { left: '3%', right: '4%', bottom: '3%', top: '3%', containLabel: true },
     xAxis: {
@@ -109,8 +163,13 @@ const barOption = computed(() => {
     series: [
       {
         type: 'bar',
-        data: dataReversed.map((i) => i.value),
-        itemStyle: { color: '#ff6b00', borderRadius: [0, 4, 4, 0] },
+        data: dataReversed.map((i) => ({
+          value: i.value,
+          itemStyle: {
+            color: categoryColors[i.category || 'Other'] || '#ff6b00',
+            borderRadius: [0, 4, 4, 0],
+          },
+        })),
         barWidth: '60%',
       },
     ],
@@ -124,8 +183,8 @@ const currentOption = computed(() =>
 
 <template>
   <div class="flex flex-col h-full bg-[#18181b] rounded-2xl border border-white/5 p-6 relative">
-    <div class="flex justify-between items-center mb-4 z-10">
-      <h3 class="text-lg font-semibold text-white">Распределение времени</h3>
+    <div class="flex justify-between items-center mb-4 z-10 pl-36">
+      <h3 class="text-lg font-semibold text-white opacity-0 md:opacity-100">Распределение</h3>
       <div class="flex bg-[#27272a] p-1 rounded-lg">
         <button
           @click="chartType = 'pie'"
@@ -151,10 +210,8 @@ const currentOption = computed(() =>
         </button>
       </div>
     </div>
-
     <div class="flex-1 w-full relative min-h-0">
       <v-chart ref="chartRef" :option="currentOption" autoresize class="w-full h-full" />
-
       <div
         v-if="loading"
         class="absolute inset-0 flex items-center justify-center bg-[#18181b]/60 backdrop-blur-sm z-20"
