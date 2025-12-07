@@ -12,7 +12,9 @@ export const getCategory = (appName: string, title: string = ''): string => {
     t.includes('deepseek') ||
     t.includes('gemini') ||
     t.includes('copilot') ||
-    t.includes('openai')
+    t.includes('openai') ||
+    t.includes('ai studio') ||
+    t.includes('grok')
   ) {
     return 'AI'
   }
@@ -28,7 +30,7 @@ export const getCategory = (appName: string, title: string = ''): string => {
   ) {
     return 'Dev'
   }
-  if (t.includes('figma') || t.includes('trello') || t.includes('jira')) {
+  if (t.includes('fleeets') || t.includes('figma') || t.includes('trello') || t.includes('jira')) {
     return 'Work'
   }
 
@@ -65,12 +67,12 @@ export const getCategory = (appName: string, title: string = ''): string => {
     app.includes('intellij') ||
     app.includes('terminal') ||
     app.includes('iterm') ||
-    app.includes('warp')
+    app.includes('warp') ||
+    app.includes('cursor')
   )
     return 'Dev'
   if (app.includes('figma') || app.includes('photoshop') || app.includes('blender')) return 'Design'
   if (app.includes('slack') || app.includes('zoom') || app.includes('meet')) return 'Work'
-  if (app.includes('cursor')) return 'AI'
 
   // Система
   if (

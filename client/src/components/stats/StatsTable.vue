@@ -25,7 +25,7 @@ const getBarWidth = (val: number, max: number) => {
         <tr
           v-for="(item, idx) in data.slice(0, 10)"
           :key="item.name"
-          class="group hover:bg-white/[0.02] transition-colors"
+          class="group hover:bg-white/2 transition-colors"
         >
           <td class="py-3 px-6 font-mono text-[#52525b] text-xs">
             #{{ idx + 1 < 10 ? '0' + (idx + 1) : idx + 1 }}
