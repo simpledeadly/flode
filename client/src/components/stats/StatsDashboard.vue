@@ -9,7 +9,7 @@ import StatsMainChart from '@/components/stats/StatsMainChart.vue'
 import StatsHeatmap from '@/components/stats/StatsHeatmap.vue'
 import StatsTable from '@/components/stats/StatsTable.vue'
 import StatsFooter from '@/components/stats/StatsFooter.vue'
-import { GlobeAltIcon, CommandLineIcon } from '@heroicons/vue/24/solid'
+import BaseButton from '@/components/BaseButton.vue'
 
 const store = useStatsStore()
 const { formatTime } = useTimeFormatter()
@@ -92,8 +92,9 @@ const sendReport = async () => {
           <div
             class="absolute top-6 left-6 z-20 flex bg-[#09090b]/80 backdrop-blur-md border border-white/10 rounded-lg p-1"
           >
-            <button
+            <BaseButton
               @click="dataSource = 'apps'"
+              variant="secondary"
               class="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all"
               :class="
                 dataSource === 'apps'
@@ -101,19 +102,18 @@ const sendReport = async () => {
                   : 'text-[#71717a] hover:text-white'
               "
             >
-              <CommandLineIcon class="w-4 h-4" />
               Applications
-            </button>
-            <button
+            </BaseButton>
+            <BaseButton
               @click="dataSource = 'web'"
+              variant="secondary"
               class="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all"
               :class="
                 dataSource === 'web' ? 'bg-[#3b82f6] text-white' : 'text-[#71717a] hover:text-white'
               "
             >
-              <GlobeAltIcon class="w-4 h-4" />
               Web Sites
-            </button>
+            </BaseButton>
           </div>
 
           <StatsMainChart

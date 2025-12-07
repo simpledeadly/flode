@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import PeriodPicker from '@/components/PeriodPicker.vue'
 import BaseButton from '@/components/BaseButton.vue'
-import { Squares2X2Icon, ChartPieIcon } from '@heroicons/vue/24/solid'
 
 interface DateRange {
   start: Date
@@ -48,6 +47,7 @@ const emit = defineEmits(['update:modelValueRange', 'update:modelValueMode'])
       <BaseButton
         v-for="m in ['apps', 'categories']"
         :key="m"
+        variant="secondary"
         @click="emit('update:modelValueMode', m as any)"
         class="px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-2"
         :class="
@@ -56,7 +56,6 @@ const emit = defineEmits(['update:modelValueRange', 'update:modelValueMode'])
             : 'text-[#71717a] hover:text-[#a1a1aa]'
         "
       >
-        <component :is="m === 'apps' ? Squares2X2Icon : ChartPieIcon" class="w-3.5 h-3.5" />
         {{ m === 'apps' ? 'Apps' : 'Cats' }}
       </BaseButton>
     </div>

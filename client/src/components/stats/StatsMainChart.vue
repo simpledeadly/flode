@@ -3,12 +3,26 @@ import { ref, computed } from 'vue'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { PieChart, BarChart } from 'echarts/charts'
-import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
-import { ChartPieIcon, ChartBarIcon } from '@heroicons/vue/24/solid'
+import { PieChart, TreemapChart } from 'echarts/charts'
+import {
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  TitleComponent,
+} from 'echarts/components'
+import { ChartPieIcon, Squares2X2Icon, LifebuoyIcon } from '@heroicons/vue/24/solid'
+import BaseButton from '@/components/BaseButton.vue'
 import { useTimeFormatter } from '@/composables/useTimeFormatter'
 
-use([CanvasRenderer, PieChart, BarChart, GridComponent, TooltipComponent, LegendComponent])
+use([
+  CanvasRenderer,
+  PieChart,
+  TreemapChart,
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  TitleComponent,
+])
 
 const props = defineProps<{
   data: Array<{ name: string; value: number; category?: string }>
@@ -17,44 +31,44 @@ const props = defineProps<{
 }>()
 
 const { formatTime } = useTimeFormatter()
-const chartType = ref<'pie' | 'bar'>('pie')
+const chartType = ref<'pie' | 'rose' | 'treemap'>('pie')
 const chartRef = ref<any>(null)
 
 defineExpose({ chartRef })
 
 // Цвета для категорий (чтобы сайты были цветными)
 // Внутри <script setup>
-  const categoryColors: Record<string, string> = {
-  Dev: '#3b82f6',     // Синий (VS Code, Cursor, Localhost, GitHub)
-  AI: '#14b8a6',      // Тиловый (ChatGPT, Claude)
-  Social: '#a855f7',  // Фиолетовый (Telegram)
-  Media: '#ef4444',   // Красный (YouTube, Yandex Music)
-  Work: '#22c55e',    // Зеленый (Slack, Zoom)
-  Design: '#ec4899',  // Розовый (Figma)
-  Web: '#f97316',     // Оранжевый (Brave, Chrome)
-  Search: '#eab308',  // Желтый
-  System: '#71717a',  // Серый
-  Other: '#52525b'
+const categoryColors: Record<string, string> = {
+  Dev: '#3b82f6', // Синий (VS Code, Cursor, Localhost, GitHub)
+  AI: '#14b8a6', // Тиловый (ChatGPT, Claude)
+  Social: '#a855f7', // Фиолетовый (Telegram)
+  Media: '#ef4444', // Красный (YouTube, Yandex Music)
+  Work: '#22c55e', // Зеленый (Slack, Zoom)
+  Design: '#ec4899', // Розовый (Figma)
+  Web: '#f97316', // Оранжевый (Brave, Chrome)
+  Search: '#eab308', // Желтый
+  System: '#71717a', // Серый
+  Other: '#52525b',
 }
 
 const processedData = computed(() => {
-  const top = props.data.slice(0, 9)
-  const others = props.data.slice(9)
+  const top = props.data.slice(0, 15) // Берем больше данных для Treemap
+  const others = props.data.slice(15)
+
   const result =
     others.length > 0
       ? [
           ...top,
-          { name: 'Прочее', value: others.reduce((a, c) => a + c.value, 0), category: 'Other' },
+          { name: 'Other', value: others.reduce((a, c) => a + c.value, 0), category: 'Other' },
         ]
       : top
 
-  // Добавляем цвет в данные, чтобы ECharts его подхватил
   return result.map((item) => ({
-    ...item,
+    name: item.name,
+    value: item.value,
+    category: item.category || 'Other',
     itemStyle: {
       color: categoryColors[item.category || 'Other'] || '#71717a',
-      borderColor: '#18181b',
-      borderWidth: 2,
     },
   }))
 })
@@ -77,6 +91,26 @@ const getWebTooltip = () => {
   html += '</div>'
   return html
 }
+
+const treemapData = computed(() => {
+  const groups: Record<string, any[]> = {}
+
+  props.data.forEach((item) => {
+    const cat = item.category || 'Other'
+    if (!groups[cat]) groups[cat] = []
+    groups[cat].push({
+      name: item.name,
+      value: item.value,
+      itemStyle: { color: categoryColors[cat] },
+    })
+  })
+
+  return Object.keys(groups).map((cat) => ({
+    name: cat,
+    itemStyle: { color: categoryColors[cat] },
+    children: groups[cat],
+  }))
+})
 
 const pieOption = computed(() => ({
   backgroundColor: 'transparent',
@@ -137,87 +171,132 @@ const pieOption = computed(() => ({
   ],
 }))
 
-// BarChart с цветами
-const barOption = computed(() => {
-  const dataReversed = [...processedData.value].reverse()
-  return {
-    backgroundColor: 'transparent',
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'shadow' },
-      backgroundColor: 'rgba(24, 24, 27, 0.95)',
-      borderColor: '#3f3f46',
-      textStyle: { color: '#e4e4e7' },
+const roseOption = computed(() => ({
+  backgroundColor: 'transparent',
+  tooltip: pieOption.value.tooltip,
+  series: [
+    {
+      type: 'pie',
+      radius: [20, 140],
+      center: ['50%', '50%'],
+      roseType: 'area', // Включает режим "Розы"
+      itemStyle: { borderRadius: 4, borderColor: '#18181b', borderWidth: 2 },
+      label: { show: true, color: '#e4e4e7', formatter: '{b}' },
+      data: processedData.value,
     },
-    grid: { left: '3%', right: '4%', bottom: '3%', top: '3%', containLabel: true },
-    xAxis: {
-      type: 'value',
-      axisLabel: { color: '#71717a', formatter: (val: number) => formatTime(val) },
-      splitLine: { lineStyle: { color: '#27272a' } },
-    },
-    yAxis: {
-      type: 'category',
-      data: dataReversed.map((i) => i.name),
-      axisLabel: { color: '#e4e4e7', width: 120, overflow: 'truncate' },
-    },
-    series: [
-      {
-        type: 'bar',
-        data: dataReversed.map((i) => ({
-          value: i.value,
-          itemStyle: {
-            color: categoryColors[i.category || 'Other'] || '#ff6b00',
-            borderRadius: [0, 4, 4, 0],
-          },
-        })),
-        barWidth: '60%',
-      },
-    ],
-  }
-})
+  ],
+}))
 
-const currentOption = computed(() =>
-  chartType.value === 'pie' ? pieOption.value : barOption.value,
-)
+const treemapOption = computed(() => ({
+  backgroundColor: 'transparent',
+  tooltip: {
+    backgroundColor: 'rgba(24, 24, 27, 0.9)',
+    borderColor: '#3f3f46',
+    textStyle: { color: '#fff' },
+    formatter: (params: any) => {
+      return `<div class="font-bold text-sm">${params.name}</div>
+              <div class="text-xs text-gray-400">${formatTime(params.value)}</div>`
+    },
+  },
+  series: [
+    {
+      type: 'treemap',
+      width: '100%',
+      height: '100%',
+      roam: false, // Отключаем зум
+      nodeClick: false, // Отключаем проваливание
+      breadcrumb: { show: false }, // Скрываем хлебные крошки
+      itemStyle: {
+        borderColor: '#18181b',
+        borderWidth: 2,
+        gapWidth: 2,
+      },
+      label: {
+        show: true,
+        formatter: '{b}',
+        color: '#fff',
+        fontWeight: 'bold',
+      },
+      levels: [
+        {
+          itemStyle: {
+            borderColor: '#18181b',
+            borderWidth: 4,
+            gapWidth: 4,
+          },
+        },
+        {
+          colorSaturation: [0.3, 0.6],
+          itemStyle: {
+            borderColorSaturation: 0.7,
+            gapWidth: 2,
+            borderWidth: 2,
+          },
+        },
+      ],
+      data: treemapData.value,
+    },
+  ],
+}))
+
+const currentOption = computed(() => {
+  if (chartType.value === 'pie') return pieOption.value
+  if (chartType.value === 'treemap') return treemapOption.value
+  return roseOption.value
+})
 </script>
 
 <template>
-  <div class="flex flex-col h-full bg-[#18181b] rounded-2xl border border-white/5 p-6 relative">
-    <div class="flex justify-between items-center mb-4 z-10 pl-36">
-      <h3 class="text-lg font-semibold text-white opacity-0 md:opacity-100">Распределение</h3>
-      <div class="flex bg-[#27272a] p-1 rounded-lg">
-        <button
-          @click="chartType = 'pie'"
-          class="p-2 rounded-md transition-all"
-          :class="
-            chartType === 'pie'
-              ? 'bg-[#ff6b00] text-white shadow-lg'
-              : 'text-[#71717a] hover:text-white'
-          "
-        >
-          <ChartPieIcon class="w-5 h-5" />
-        </button>
-        <button
-          @click="chartType = 'bar'"
-          class="p-2 rounded-md transition-all"
-          :class="
-            chartType === 'bar'
-              ? 'bg-[#ff6b00] text-white shadow-lg'
-              : 'text-[#71717a] hover:text-white'
-          "
-        >
-          <ChartBarIcon class="w-5 h-5" />
-        </button>
-      </div>
+  <div
+    class="flex flex-col h-full bg-[#18181b] rounded-2xl border border-white/5 p-6 relative group"
+  >
+    <!-- Переключатель типов графика (всплывает при наведении или всегда виден) -->
+    <div class="absolute top-6 right-6 z-20 flex bg-[#27272a] p-1 rounded-lg border border-white/5">
+      <BaseButton
+        @click="chartType = 'pie'"
+        variant="secondary"
+        class="p-2 rounded-md transition-all hover:bg-white/10"
+        :class="chartType === 'pie' ? 'bg-[#ff6b00] text-white shadow-lg' : 'text-[#71717a]'"
+        title="Donut Chart"
+      >
+        <ChartPieIcon class="w-4 h-4" />
+      </BaseButton>
+      <BaseButton
+        @click="chartType = 'rose'"
+        variant="secondary"
+        class="p-2 rounded-md transition-all hover:bg-white/10"
+        :class="chartType === 'rose' ? 'bg-[#ff6b00] text-white shadow-lg' : 'text-[#71717a]'"
+        title="Rose Chart"
+      >
+        <LifebuoyIcon class="w-4 h-4" />
+      </BaseButton>
+      <BaseButton
+        @click="chartType = 'treemap'"
+        variant="secondary"
+        class="p-2 rounded-md transition-all hover:bg-white/10"
+        :class="chartType === 'treemap' ? 'bg-[#ff6b00] text-white shadow-lg' : 'text-[#71717a]'"
+        title="Treemap"
+      >
+        <Squares2X2Icon class="w-4 h-4" />
+      </BaseButton>
     </div>
-    <div class="flex-1 w-full relative min-h-0">
+
+    <!-- Заголовок -->
+    <h3
+      class="absolute top-6 left-1/2 -translate-x-1/2 text-xs font-bold text-[#52525b] uppercase tracking-widest pointer-events-none"
+    >
+      Activity Distribution
+    </h3>
+
+    <div class="flex-1 w-full relative min-h-0 mt-4">
       <v-chart ref="chartRef" :option="currentOption" autoresize class="w-full h-full" />
+
       <div
         v-if="loading"
         class="absolute inset-0 flex items-center justify-center bg-[#18181b]/60 backdrop-blur-sm z-20"
       >
         <div
-          class="w-10 h-10 border-2 border-[#ff6b00] border-t-transparent rounded-full animate-spin"
+          class="w-8 h-8 border-2 border-[#ff6b00] border-t-transparent rounded-full animate-spin"
         />
       </div>
     </div>
