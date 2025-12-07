@@ -9,7 +9,7 @@ import StatsToolbar from './StatsToolbar.vue'
 import StatsMainChart from './StatsMainChart.vue'
 import StatsSankey from './StatsSankey.vue'
 import StatsTable from './StatsTable.vue'
-import DailyHeatmap from './DailyHeatmap.vue'
+import DailyRhythm from './DailyRhythm.vue'
 
 const store = useStatsStore()
 const { formatTime } = useTimeFormatter()
@@ -105,7 +105,7 @@ const displayData = computed(() => {
 
         <!-- Нижний блок: Daily Rhythm -->
         <div class="flex-1 p-4 min-h-0">
-          <DailyHeatmap :heatmap="heatmapData" />
+          <DailyRhythm :heatmap="heatmapData" :hourly="store.hourly" />
         </div>
       </div>
 

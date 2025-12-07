@@ -219,7 +219,7 @@ export const processStats = (
   return {
     stats: formatList(appMap, 'app'),
     webStats: formatList(webMap, 'web'),
-    hourly: [], // hourlyByCat
+    hourly: hourlyByCat,
     rawWindowEvents: windowEvents, // Сырые события для Timeline/Sankey
     rawWebEvents: webEvents,
     sankeyApp: processSankey(windowEvents, appMap, 'app'),

@@ -1,152 +1,161 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { CustomChart } from 'echarts/charts'
-import { GridComponent, TooltipComponent, DataZoomComponent } from 'echarts/components'
+import { HeatmapChart, BarChart } from 'echarts/charts'
+import { GridComponent, TooltipComponent, VisualMapComponent } from 'echarts/components'
 import { useTimeFormatter } from '@/composables/useTimeFormatter'
+import { TableCellsIcon, ChartBarIcon } from '@heroicons/vue/24/solid'
 
-use([CanvasRenderer, CustomChart, GridComponent, TooltipComponent, DataZoomComponent])
+use([CanvasRenderer, HeatmapChart, BarChart, GridComponent, TooltipComponent, VisualMapComponent])
 
 const props = defineProps<{
-  events: Array<{ name: string; value: number; category?: string; timestamp: string }>
+  heatmap: { data: [number, number, number][]; categories: string[] }
+  hourly: Array<Record<string, number>>
 }>()
 
 const { formatTime } = useTimeFormatter()
+const viewMode = ref<'heatmap' | 'bars'>('heatmap')
 
-const categoryColors: Record<string, string> = {
-  Dev: '#3b82f6',
-  AI: '#14b8a6',
-  Social: '#a855f7',
-  Media: '#ef4444',
-  Work: '#22c55e',
-  Design: '#ec4899',
-  Web: '#f97316',
-  Search: '#eab308',
-  System: '#71717a',
-  Other: '#52525b',
-}
-
-const timelineData = computed(() => {
-  if (!props.events || props.events.length === 0) {
-    return { data: [], categories: [] }
-  }
-
-  // Получаем уникальные категории для оси Y
-  const categories = [...new Set(props.events.map((e) => e.category || 'Other'))]
-
-  const data = props.events.map((event) => {
-    const categoryIndex = categories.indexOf(event.category || 'Other')
-    const startTime = new Date(event.timestamp)
-    const endTime = new Date(startTime.getTime() + event.value * 1000)
-
-    return {
-      name: event.name,
-      value: [
-        categoryIndex, // 0: Индекс категории для оси Y
-        startTime.getTime(), // 1: Время начала
-        endTime.getTime(), // 2: Время конца
-        event.value, // 3: Длительность в секундах
-      ],
-      itemStyle: {
-        color: categoryColors[event.category || 'Other'],
-      },
-    }
-  })
-
-  return { data, categories }
-})
-
-const option = computed(() => ({
+// --- Опции для Heatmap ---
+const heatmapOption = computed(() => ({
   backgroundColor: 'transparent',
   tooltip: {
+    position: 'top',
     formatter: (params: any) => {
-      return `<b>${params.data.name}</b><br/>${formatTime(params.data.value[3])}`
+      if (!props.heatmap.categories[params.value[1]]) return ''
+      const category = props.heatmap.categories[params.value[1]]
+      return `<b>${category}</b>: ${formatTime(params.value[2])}`
     },
   },
-  grid: { top: 10, bottom: 50, left: 80, right: 20 },
+  grid: {
+    top: '5%',
+    bottom: '15%',
+    left: '12%',
+    right: '5%',
+  },
   xAxis: {
-    type: 'time',
+    type: 'category',
+    data: Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')),
+    splitArea: { show: true, areaStyle: { color: ['#ffffff04', 'transparent'] } },
+    axisLine: { show: false },
+    axisTick: { show: false },
     axisLabel: { color: '#71717a' },
-    splitLine: { show: true, lineStyle: { color: '#ffffff09' } },
   },
   yAxis: {
     type: 'category',
-    data: timelineData.value.categories,
+    data: props.heatmap.categories,
+    axisLine: { show: false },
+    axisTick: { show: false },
     axisLabel: { color: '#a1a1aa' },
   },
-  dataZoom: [
-    {
-      type: 'slider',
-      filterMode: 'weakFilter',
-      orient: 'horizontal',
-      bottom: 10,
-      height: 20,
-      backgroundColor: '#ffffff05',
-      borderColor: 'transparent',
-      dataBackground: {
-        lineStyle: { color: 'transparent' },
-        areaStyle: { color: 'transparent' },
-      },
-      fillerColor: 'rgba(255, 107, 0, 0.2)',
-      handleStyle: { color: '#ff6b00' },
-      moveHandleStyle: { color: '#ff6b00' },
-      textStyle: { color: '#a1a1aa' },
+  visualMap: {
+    min: 0,
+    max: Math.max(...(props.heatmap.data || []).map((d) => d[2]), 1800),
+    calculable: false,
+    orient: 'horizontal',
+    left: 'center',
+    bottom: '0%',
+    inRange: {
+      color: ['#1d2c3b', '#2c4358', '#3b82f6', '#ff6b00'],
     },
-  ],
+    show: false,
+  },
   series: [
     {
-      type: 'custom',
-      renderItem: (params: any, api: any) => {
-        const categoryIndex = api.value(0)
-        const start = api.coord([api.value(1), categoryIndex])
-        const end = api.coord([api.value(2), categoryIndex])
-        const height = api.size([0, 1])[1] * 0.7
-
-        if (end[0] - start[0] < 2) return // Не рендерим слишком мелкие события
-
-        const rectShape = {
-          x: start[0],
-          y: start[1] - height / 2,
-          width: end[0] - start[0],
-          height: height,
-        }
-
-        return {
-          type: 'rect',
-          shape: rectShape,
-          style: api.style(),
-          styleEmphasis: {
-            stroke: '#fff',
-          },
-        }
+      name: 'Activity',
+      type: 'heatmap',
+      data: props.heatmap.data,
+      label: { show: false },
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 10,
+          shadowColor: 'rgba(0, 0, 0, 0.5)',
+        },
       },
-      itemStyle: {
-        opacity: 0.9,
-        borderRadius: 2,
-      },
-      encode: {
-        x: [1, 2],
-        y: 0,
-      },
-      data: timelineData.value.data,
     },
   ],
 }))
+
+// --- Опции для Столбиков ---
+const barsOption = computed(() => {
+  const categories = Object.keys(
+    (props.hourly || []).reduce((acc, hour) => ({ ...acc, ...hour }), {}),
+  )
+  const series = categories.map((cat) => ({
+    name: cat,
+    type: 'bar',
+    stack: 'total',
+    emphasis: { focus: 'series' },
+    data: (props.hourly || []).map((hourData) => hourData[cat] || 0),
+  }))
+
+  return {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params: any) => {
+        let tooltip = `${params[0].name}:00<br/>`
+        let total = 0
+        params.forEach((param: any) => {
+          if (param.value > 0) {
+            tooltip += `${param.marker} ${param.seriesName}: ${formatTime(param.value)}<br/>`
+            total += param.value
+          }
+        })
+        tooltip += `<b>Total: ${formatTime(total)}</b>`
+        return tooltip
+      },
+    },
+    grid: { top: '15%', bottom: '15%', left: '5%', right: '5%', containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')),
+      axisLabel: { color: '#71717a' },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { color: '#a1a1aa' },
+      splitLine: { lineStyle: { color: '#ffffff09' } },
+    },
+    series: series,
+  }
+})
+
+const currentOption = computed(() =>
+  viewMode.value === 'heatmap' ? heatmapOption.value : barsOption.value,
+)
 </script>
 
 <template>
   <div class="bg-[#18181b] rounded-2xl border border-white/5 h-full flex flex-col p-4">
-    <h3 class="text-xs font-bold text-[#52525b] uppercase tracking-widest pl-2 mb-2">
-      Daily Rhythm
-    </h3>
-    <div
-      v-if="events.length === 0"
-      class="flex-1 flex items-center justify-center text-sm text-[#52525b]"
-    >
-      No activity to display
+    <div class="flex justify-between items-center pl-2 mb-2">
+      <h3 class="text-xs font-bold text-[#52525b] uppercase tracking-widest">Daily Rhythm</h3>
+      <div class="flex bg-[#09090b] p-1 rounded-lg border border-white/10">
+        <button
+          @click="viewMode = 'heatmap'"
+          class="p-1.5 rounded-md transition-colors"
+          :class="
+            viewMode === 'heatmap' ? 'bg-[#ff6b00] text-white' : 'text-[#71717a] hover:bg-white/10'
+          "
+        >
+          <TableCellsIcon class="w-4 h-4" />
+        </button>
+        <button
+          @click="viewMode = 'bars'"
+          class="p-1.5 rounded-md transition-colors"
+          :class="
+            viewMode === 'bars' ? 'bg-[#ff6b00] text-white' : 'text-[#71717a] hover:bg-white/10'
+          "
+        >
+          <ChartBarIcon class="w-4 h-4" />
+        </button>
+      </div>
     </div>
-    <v-chart v-else :option="option" autoresize class="flex-1 -ml-4" />
+    <div class="flex-1 min-h-0">
+      <v-chart :option="currentOption" autoresize />
+    </div>
   </div>
 </template>
