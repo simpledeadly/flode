@@ -1,5 +1,90 @@
-import { AWEvent, ProcessedStats, StatItem } from '../types.js'
-import { getAppCategory, getDomainCategory, getDomainFromUrl } from '../utils/categories.js'
+import { AWEvent, ProcessedStats, StatItem, SankeyData } from '../types'
+import { getAppCategory, getDomainCategory, getDomainFromUrl } from '../utils/categories'
+
+const processSankey = (
+  events: AWEvent[],
+  totalTimeMap: Record<string, number>,
+  type: 'app' | 'web'
+): SankeyData => {
+  // 1. Нормализация и фильтрация имен
+  const normalizeName = (name: string): string => {
+    if (!name) return ''
+    const lower = name.toLowerCase()
+    if (['brave', 'chrome', 'safari', 'arc'].some((b) => lower.includes(b))) return 'Browser'
+    if (['cursor', 'code', 'webstorm'].some((c) => lower.includes(c))) return 'Code Editor'
+    if (lower.includes('telegram')) return 'Telegram'
+    if (lower.includes('figma')) return 'Figma'
+    // Игнорируем системный шум
+    if (
+      ['loginwindow', 'finder', 'dock', 'system', 'unknown', 'window server'].some((n) =>
+        lower.includes(n)
+      )
+    )
+      return ''
+    return name
+  }
+
+  // 2. Создаем рейтинг приложений по общему времени использования
+  const sortedNodes = Object.entries(totalTimeMap)
+    .map(([name, time]) => ({ name: normalizeName(name), time }))
+    .filter((n) => n.name && n.time > 60) // Учитываем только значимые (>1 мин)
+    .sort((a, b) => b.time - a.time)
+    .map((n) => n.name)
+
+  // Создаем карту рангов: чем меньше индекс, тем выше ранг
+  const rankMap = new Map(sortedNodes.map((name, index) => [name, index]))
+
+  if (rankMap.size < 2) return { nodes: [], links: [] }
+
+  // 3. Считаем переходы, учитывая иерархию
+  const linksMap: Map<string, { source: string; target: string; value: number }> = new Map()
+  const cleanEvents = [...events]
+    .filter((e) => e.duration > 3) // Игнорируем короткие события
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+
+  for (let i = 1; i < cleanEvents.length; i++) {
+    const sourceName = normalizeName(
+      type === 'web'
+        ? getDomainFromUrl(cleanEvents[i - 1].data.url || '')
+        : cleanEvents[i - 1].data.app || ''
+    )
+
+    const targetName = normalizeName(
+      type === 'web'
+        ? getDomainFromUrl(cleanEvents[i].data.url || '')
+        : cleanEvents[i].data.app || ''
+    )
+
+    // Пропускаем переходы на самого себя или на "мусор"
+    if (
+      sourceName === targetName ||
+      !sourceName ||
+      !targetName ||
+      !rankMap.has(sourceName) ||
+      !rankMap.has(targetName)
+    ) {
+      continue
+    }
+
+    // 🔥 ГЛАВНЫЙ ФИКС: Создаем связь, только если она идет "вниз" по иерархии
+    // От приложения с большим временем к приложению с меньшим. Это ГАРАНТИРУЕТ отсутствие циклов.
+    if (rankMap.get(sourceName)! < rankMap.get(targetName)!) {
+      const linkKey = `${sourceName} -> ${targetName}`
+      const link = linksMap.get(linkKey)
+      if (link) {
+        link.value++
+      } else {
+        linksMap.set(linkKey, { source: sourceName, target: targetName, value: 1 })
+      }
+    }
+  }
+
+  // 4. Формируем финальный результат
+  return {
+    nodes: sortedNodes.map((name) => ({ name })),
+    links: Array.from(linksMap.values()),
+  }
+}
 
 export const processStats = (windowEvents: AWEvent[], webEvents: AWEvent[]): ProcessedStats => {
   const appMap: Record<string, number> = {}
@@ -118,7 +203,10 @@ export const processStats = (windowEvents: AWEvent[], webEvents: AWEvent[]): Pro
   return {
     stats: formatList(appMap, 'app'),
     webStats: formatList(webMap, 'web'),
-    hourly: hourlyByCat,
-    efficiency: 0, // Заглушка, расчетов нет
+    hourly: [], // hourlyByCat
+    rawWindowEvents: windowEvents, // Сырые события для Timeline/Sankey
+    rawWebEvents: webEvents,
+    sankeyApp: processSankey(windowEvents, appMap, 'app'),
+    sankeyWeb: processSankey(webEvents, webMap, 'web'),
   }
 }

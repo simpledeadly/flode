@@ -2,24 +2,62 @@ import { defineStore } from 'pinia'
 import axios from 'axios'
 import { ref } from 'vue'
 
+// Определяем типы данных
 export interface StatItem {
   name: string
   value: number
   category: string
 }
 
+export interface AWEvent {
+  id: number
+  timestamp: string
+  duration: number
+  data: {
+    app?: string
+    title?: string
+    url?: string
+    [key: string]: any
+  }
+}
+
+export interface SankeyData {
+  nodes: any[]
+  links: any[]
+}
+
+// Помощник для определения категории (логика с твоего бэкенда)
+const getCategoryByData = (eventData: AWEvent['data'], type: 'apps' | 'web'): string => {
+  if (type === 'web') {
+    const domain = eventData.url?.replace(/^www\./, '').split('/')[0] || ''
+    if (domain.includes('aistudio') || domain.includes('grok')) return 'AI'
+    if (domain.includes('localhost') || domain.includes('vercel')) return 'Dev'
+    return 'Web'
+  }
+
+  const app = eventData.app?.toLowerCase() || ''
+  if (app.includes('cursor') || app.includes('code')) return 'Dev'
+  if (app.includes('telegram')) return 'Social'
+  if (app.includes('brave') || app.includes('chrome')) return 'Web'
+  return 'Other'
+}
+
 export const useStatsStore = defineStore('stats', () => {
+  // Агрегированные данные для графиков
   const stats = ref<StatItem[]>([])
   const webStats = ref<StatItem[]>([])
-  // hourly теперь хранит сложную структуру: [{ 'Dev': 300, 'Web': 100 }, ...]
   const hourly = ref<Array<Record<string, number>>>(new Array(24).fill({}))
-  const efficiency = ref<number>(0)
+  const rawAppEvents = ref<AWEvent[]>([]) // <-- ДОБАВЛЕНО
+  const rawWebEvents = ref<AWEvent[]>([]) // <-- ДОБАВЛЕНО
+  const sankeyApp = ref<SankeyData | null>(null) // <-- ДОБАВЛЕНО
+  const sankeyWeb = ref<SankeyData | null>(null) // <-- ДОБАВЛЕНО
   const loading = ref(false)
   const error = ref<string | null>(null)
 
   async function fetchStats(start?: Date, end?: Date) {
     loading.value = true
     error.value = null
+
     try {
       const params: any = {}
       if (start) params.start = start.toISOString()
@@ -30,14 +68,22 @@ export const useStatsStore = defineStore('stats', () => {
 
       stats.value = data.stats || []
       webStats.value = data.webStats || []
-      hourly.value = data.hourly || new Array(24).fill({})
-      efficiency.value = data.efficiency || 0
+      hourly.value = data.hourly || []
+
+      rawAppEvents.value = data.rawWindowEvents || []
+      rawWebEvents.value = data.rawWebEvents || []
+      sankeyApp.value = data.sankeyApp
+      sankeyWeb.value = data.sankeyWeb
     } catch (e) {
       console.error(e)
       error.value = 'Ошибка API'
     } finally {
       loading.value = false
     }
+  }
+
+  function getCategory(eventData: AWEvent['data'], type: 'apps' | 'web'): string {
+    return getCategoryByData(eventData, type)
   }
 
   async function sendReport(imageBase64: string) {
@@ -50,5 +96,18 @@ export const useStatsStore = defineStore('stats', () => {
     }
   }
 
-  return { stats, webStats, hourly, efficiency, loading, error, fetchStats, sendReport }
+  return {
+    stats,
+    webStats,
+    hourly,
+    loading,
+    error,
+    rawAppEvents,
+    rawWebEvents,
+    sankeyApp,
+    sankeyWeb,
+    fetchStats,
+    sendReport,
+    getCategory,
+  }
 })

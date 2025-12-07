@@ -18,19 +18,16 @@ const emit = defineEmits(['update:modelValueRange', 'update:modelValueMode'])
 </script>
 
 <template>
+  <!-- Уменьшены отступы (py-2), уменьшены шрифты -->
   <div
-    class="flex flex-col md:flex-row items-center justify-between gap-4 py-4 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-md sticky top-0 z-50 px-4 md:px-8"
+    class="flex items-center justify-between gap-4 py-2 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-md sticky top-0 z-50 px-4 md:px-8"
   >
-    <!-- Лого и Тотал (Слева) -->
-    <div class="flex items-baseline gap-6">
-      <h1 class="text-xl font-bold tracking-tighter text-white">FLODE</h1>
-      <div class="flex items-baseline gap-3">
-        <span class="text-3xl font-mono font-bold text-[#ff6b00] leading-none">{{
-          totalTime
-        }}</span>
-        <span class="text-xs text-[#52525b] uppercase font-bold tracking-wider"
-          >Total Activity</span
-        >
+    <!-- Лого и Тотал -->
+    <div class="flex items-center gap-4">
+      <h1 class="text-lg font-bold tracking-tighter text-white">FLODE</h1>
+      <div class="flex items-baseline gap-2">
+        <span class="text-2xl font-mono font-bold text-[#ff6b00]">{{ totalTime }}</span>
+        <span class="text-[10px] text-[#52525b] uppercase font-bold tracking-wider">Total</span>
       </div>
     </div>
 

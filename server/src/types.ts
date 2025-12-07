@@ -20,5 +20,23 @@ export interface ProcessedStats {
   stats: StatItem[]
   webStats: StatItem[]
   hourly: Array<Record<string, number>>
-  efficiency: number
+  rawWindowEvents: AWEvent[]
+  rawWebEvents: AWEvent[]
+  sankeyApp: SankeyData
+  sankeyWeb: SankeyData
+}
+
+export interface SankeyNode {
+  name: string
+}
+
+export interface SankeyLink {
+  source: string
+  target: string
+  value: number
+}
+
+export interface SankeyData {
+  nodes: SankeyNode[]
+  links: SankeyLink[]
 }
