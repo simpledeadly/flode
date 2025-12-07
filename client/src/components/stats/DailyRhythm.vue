@@ -10,6 +10,8 @@ import { TableCellsIcon, ChartBarIcon, BeakerIcon, FireIcon } from '@heroicons/v
 
 use([CanvasRenderer, HeatmapChart, BarChart, GridComponent, TooltipComponent, VisualMapComponent])
 
+const emit = defineEmits(['item-selected'])
+
 const props = defineProps<{
   heatmap: { data: [number, number, number][]; categories: string[] }
   hourly: Array<Record<string, number>>
@@ -19,6 +21,18 @@ const props = defineProps<{
 
 const { formatTime } = useTimeFormatter()
 const viewMode = ref<'heatmap' | 'bars' | 'fragmentation' | 'intensity'>('heatmap')
+
+function onChartClick(params: any) {
+  // Для Heatmap, params.value[1] - это индекс категории
+  if (viewMode.value === 'heatmap' && props.heatmap.categories[params.value[1]]) {
+    const categoryName = props.heatmap.categories[params.value[1]]
+    emit('item-selected', categoryName)
+  }
+  // Для Столбиков, params.seriesName - это имя категории
+  else if (viewMode.value === 'bars') {
+    emit('item-selected', params.seriesName)
+  }
+}
 
 // --- Опции для Heatmap ---
 const heatmapOption = computed(() => ({
@@ -242,7 +256,7 @@ const currentOption = computed(() => {
       </div>
     </div>
     <div class="flex-1 min-h-0">
-      <v-chart :option="currentOption" autoresize />
+      <v-chart :option="currentOption" autoresize @click="onChartClick" />
     </div>
   </div>
 </template>

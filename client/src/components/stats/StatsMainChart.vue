@@ -24,6 +24,8 @@ use([
   TitleComponent,
 ])
 
+const emit = defineEmits(['item-selected'])
+
 const props = defineProps<{
   data: Array<{ name: string; value: number; category?: string }>
   webData?: Array<{ name: string; value: number }>
@@ -35,6 +37,13 @@ const chartType = ref<'pie' | 'rose' | 'treemap'>('pie')
 const chartRef = ref<any>(null)
 
 defineExpose({ chartRef })
+
+function onChartClick(params: any) {
+  // У "Прочее" нет смысла фильтровать
+  if (params.name !== 'Other' && params.name !== 'Прочее') {
+    emit('item-selected', params.name)
+  }
+}
 
 // Цвета для категорий (чтобы сайты были цветными)
 // Внутри <script setup>
@@ -152,7 +161,7 @@ const pieOption = computed(() => ({
   legend: {
     orient: 'vertical',
     right: 0,
-    top: 'bottom',
+    top: 'center',
     type: 'scroll',
     pageIconColor: '#ff6b00',
     pageTextStyle: { color: '#a1a1aa' },
@@ -280,6 +289,7 @@ const currentOption = computed(() => {
         :option="currentOption"
         autoresize
         class="w-full h-full"
+        @click="onChartClick"
       />
 
       <div

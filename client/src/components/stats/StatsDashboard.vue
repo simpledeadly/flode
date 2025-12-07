@@ -17,6 +17,7 @@ const { formatTime } = useTimeFormatter()
 const selectedRange = ref({ start: startOfDay(new Date()), end: new Date() })
 const dataSource = ref<'apps' | 'web'>('apps')
 const viewMode = ref<'apps' | 'categories'>('apps')
+const selectedFilter = ref<string | null>(null)
 
 watch(
   selectedRange,
@@ -67,18 +68,38 @@ const sankeyData = computed(() => {
   return dataSource.value === 'apps' ? store.sankeyApp : store.sankeyWeb
 })
 
+function handleItemSelect(itemName: string) {
+  // Если нажать на тот же элемент еще раз - сбрасываем фильтр
+  if (selectedFilter.value === itemName) {
+    selectedFilter.value = null
+  } else {
+    selectedFilter.value = itemName
+  }
+}
+
 const displayData = computed(() => {
-  const rawData = (dataSource.value === 'apps' ? store.stats : store.webStats) || []
+  // Шаг 1: Получаем сырые данные
+  let sourceData = (dataSource.value === 'apps' ? store.stats : store.webStats) || []
+
+  // Шаг 2: Группируем по категориям, если нужно
   if (viewMode.value === 'categories') {
     const catMap: Record<string, any> = {}
-    rawData.forEach((item) => {
+    sourceData.forEach((item) => {
       const cat = item.category || 'Other'
       if (!catMap[cat]) catMap[cat] = { name: cat, value: 0, category: cat }
       catMap[cat].value += item.value || 0
     })
-    return Object.values(catMap).sort((a, b) => b.value - a.value)
+    sourceData = Object.values(catMap).sort((a, b) => b.value - a.value)
   }
-  return rawData
+
+  // 🔥 Шаг 3: ФИЛЬТРУЕМ, если фильтр активен
+  if (selectedFilter.value) {
+    return sourceData.filter(
+      (item) => item.name === selectedFilter.value || item.category === selectedFilter.value,
+    )
+  }
+
+  return sourceData
 })
 </script>
 
@@ -97,7 +118,7 @@ const displayData = computed(() => {
       <div class="col-span-3 xl:col-span-3 bg-[#09090b] flex flex-col">
         <!-- Верхний блок: Sankey -->
         <div class="h-[45%] p-4">
-          <StatsSankey :data="sankeyData" />
+          <StatsSankey :data="sankeyData" @item-selected="handleItemSelect" />
         </div>
 
         <!-- Разделитель -->
@@ -110,6 +131,7 @@ const displayData = computed(() => {
             :hourly="store.hourly"
             :fragmentation="store.fragmentation"
             :intensity="store.intensity"
+            @item-selected="handleItemSelect"
           />
         </div>
       </div>
@@ -118,7 +140,12 @@ const displayData = computed(() => {
       <div class="col-span-3 xl:col-span-2 bg-[#09090b] flex flex-col">
         <!-- Верхний блок: Распределение -->
         <div class="h-[45%] p-4">
-          <StatsMainChart :data="displayData" :web-data="store.webStats" :loading="store.loading" />
+          <StatsMainChart
+            :data="displayData"
+            :web-data="store.webStats"
+            :loading="store.loading"
+            @item-selected="handleItemSelect"
+          />
         </div>
 
         <!-- Разделитель -->
@@ -128,6 +155,18 @@ const displayData = computed(() => {
         <div class="flex-1 p-4 flex flex-col min-h-0">
           <div class="mb-2 flex items-center justify-between">
             <h3 class="text-xs font-bold text-[#52525b] uppercase tracking-widest">Details</h3>
+
+            <div
+              v-if="selectedFilter"
+              class="flex items-center gap-2 text-xs bg-[#18181b] border border-white/10 rounded-lg p-1 pr-2"
+            >
+              <span class="text-gray-400">Filtering by:</span>
+              <span class="font-bold text-white">{{ selectedFilter }}</span>
+              <button @click="selectedFilter = null" class="ml-1 text-gray-500 hover:text-white">
+                &times;
+              </button>
+            </div>
+
             <div class="flex bg-[#18181b] border border-white/10 rounded-lg p-1">
               <button
                 @click="dataSource = 'apps'"

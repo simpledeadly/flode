@@ -8,6 +8,8 @@ import { TooltipComponent } from 'echarts/components'
 
 use([CanvasRenderer, SankeyChart, TooltipComponent])
 
+const emit = defineEmits(['item-selected'])
+
 const props = defineProps<{
   data: {
     nodes: Array<{ name: string }>
@@ -39,6 +41,13 @@ const option = computed(() => ({
     },
   ],
 }))
+
+function onChartClick(params: any) {
+  // Реагируем только на клик по узлу (приложению), а не по связи
+  if (params.dataType === 'node') {
+    emit('item-selected', params.name)
+  }
+}
 </script>
 
 <template>
@@ -52,6 +61,6 @@ const option = computed(() => ({
     >
       Not enough data to show flows
     </div>
-    <v-chart v-else :option="option" autoresize class="flex-1" />
+    <v-chart v-else :option="option" autoresize class="flex-1" @click="onChartClick" />
   </div>
 </template>
