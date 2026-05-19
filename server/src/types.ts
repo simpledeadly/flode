@@ -22,9 +22,8 @@ export interface ProcessedStats {
   hourly: Array<Record<string, number>>
   fragmentation: number[]
   intensity: number[]
-  rawInputEvents: AWEvent[]
-  rawWindowEvents: AWEvent[]
-  rawWebEvents: AWEvent[]
+  heatmapApp: { data: [number, number, number][]; categories: string[] }
+  heatmapWeb: { data: [number, number, number][]; categories: string[] }
   sankeyApp: SankeyData
   sankeyWeb: SankeyData
 }

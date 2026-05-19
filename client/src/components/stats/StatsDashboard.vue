@@ -33,35 +33,7 @@ const totalTime = computed(() => {
 })
 
 const heatmapData = computed(() => {
-  const source = (dataSource.value === 'apps' ? store.rawAppEvents : store.rawWebEvents) || []
-  if (source.length === 0) return { data: [], categories: [] }
-
-  const categories = [
-    ...new Set(source.map((e) => store.getCategory(e.data, dataSource.value))),
-  ].sort()
-  const grid: number[][] = Array.from({ length: 24 }, () => Array(categories.length).fill(0))
-
-  for (const event of source) {
-    const category = store.getCategory(event.data, dataSource.value)
-    const categoryIndex = categories.indexOf(category)
-    const hour = new Date(event.timestamp).getHours()
-
-    if (categoryIndex !== -1 && hour >= 0 && hour < 24) {
-      // 🔥 ГЛАВНЫЙ ФИКС: `event.duration` может быть undefined, добавляем `|| 0`
-      grid[hour]![categoryIndex]! += event.duration || 0
-    }
-  }
-
-  const data: [number, number, number][] = [] // Строгая типизация
-  for (let hour = 0; hour < 24; hour++) {
-    for (let catIdx = 0; catIdx < categories.length; catIdx++) {
-      if (grid[hour]![catIdx]! > 0) {
-        data.push([hour, catIdx, grid[hour]![catIdx]!])
-      }
-    }
-  }
-
-  return { data, categories }
+  return dataSource.value === 'apps' ? store.heatmapApp : store.heatmapWeb
 })
 
 const sankeyData = computed(() => {

@@ -38,33 +38,31 @@ export class AWService {
     const bucketIds = Object.keys(bucketsMap)
 
     // 1. Ищем бакеты по их назначению
-    const windowBucketId = bucketIds.find((id) => id.includes('aw-watcher-window'))
+    const windowBucketIds = bucketIds.filter((id) => id.includes('aw-watcher-window'))
     const webBucketIds = bucketIds.filter((id) => id.includes('aw-watcher-web'))
-    const inputBucketId = bucketIds.find((id) => id.includes('aw-watcher-input'))
+    const inputBucketIds = bucketIds.filter((id) => id.includes('aw-watcher-input'))
 
     console.log(`📦 Targets:`)
-    console.log(`   🪟 Window: ${windowBucketId || 'NOT FOUND'}`)
+    console.log(`   🪟 Window: ${windowBucketIds.join(', ') || 'NONE'}`)
     console.log(`   🌍 Web:    ${webBucketIds.join(', ') || 'NONE'}`)
-    console.log(`   ⌨️ Input:  ${inputBucketId || 'NOT FOUND'}`)
+    console.log(`   ⌨️ Input:  ${inputBucketIds.join(', ') || 'NONE'}`)
 
-    // 2. 🔥 ФИКС ЗДЕСЬ: Создаем промисы и выполняем их через Promise.all для максимальной скорости и безопасности типов
-    const windowPromise = windowBucketId
-      ? this.fetchEventsFromBucket(windowBucketId, start, end)
-      : Promise.resolve([])
+    // 2. ФИКС ЗДЕСЬ: Создаем промисы и выполняем их через Promise.all
+    const windowPromises = windowBucketIds.map((id) => this.fetchEventsFromBucket(id, start, end))
     const webPromises = webBucketIds.map((id) => this.fetchEventsFromBucket(id, start, end))
-    const inputPromise = inputBucketId
-      ? this.fetchEventsFromBucket(inputBucketId, start, end)
-      : Promise.resolve([])
+    const inputPromises = inputBucketIds.map((id) => this.fetchEventsFromBucket(id, start, end))
 
     // Ждем выполнения всех запросов
-    const [windowEvents, webEventsNested, inputEvents] = await Promise.all([
-      windowPromise,
-      Promise.all(webPromises), // Важно: Promise.all для массива промисов
-      inputPromise,
+    const [windowEventsNested, webEventsNested, inputEventsNested] = await Promise.all([
+      Promise.all(windowPromises),
+      Promise.all(webPromises),
+      Promise.all(inputPromises),
     ])
 
-    // Объединяем результаты из нескольких веб-бакетов
+    // Объединяем результаты из нескольких бакетов
+    const windowEvents = windowEventsNested.flat()
     const webEvents = webEventsNested.flat()
+    const inputEvents = inputEventsNested.flat()
 
     console.log(
       `✅ Results: Window=${windowEvents.length}, Web=${webEvents.length}, Input=${inputEvents.length}`

@@ -49,9 +49,8 @@ export const useStatsStore = defineStore('stats', () => {
   const hourly = ref<Array<Record<string, number>>>(new Array(24).fill({}))
   const fragmentation = ref<number[]>([])
   const intensity = ref<number[]>([])
-  const rawInputEvents = ref<AWEvent[]>([])
-  const rawAppEvents = ref<AWEvent[]>([])
-  const rawWebEvents = ref<AWEvent[]>([])
+  const heatmapApp = ref<{ data: [number, number, number][]; categories: string[] }>({ data: [], categories: [] })
+  const heatmapWeb = ref<{ data: [number, number, number][]; categories: string[] }>({ data: [], categories: [] })
   const sankeyApp = ref<SankeyData | null>(null)
   const sankeyWeb = ref<SankeyData | null>(null)
   const loading = ref(false)
@@ -74,9 +73,8 @@ export const useStatsStore = defineStore('stats', () => {
       hourly.value = data.hourly || []
       fragmentation.value = data.fragmentation || []
       intensity.value = data.intensity || []
-      rawInputEvents.value = data.rawInputEvents || []
-      rawAppEvents.value = data.rawWindowEvents || []
-      rawWebEvents.value = data.rawWebEvents || []
+      heatmapApp.value = data.heatmapApp || { data: [], categories: [] }
+      heatmapWeb.value = data.heatmapWeb || { data: [], categories: [] }
       sankeyApp.value = data.sankeyApp
       sankeyWeb.value = data.sankeyWeb
     } catch (e) {
@@ -107,11 +105,10 @@ export const useStatsStore = defineStore('stats', () => {
     hourly,
     fragmentation,
     intensity,
-    rawInputEvents,
+    heatmapApp,
+    heatmapWeb,
     loading,
     error,
-    rawAppEvents,
-    rawWebEvents,
     sankeyApp,
     sankeyWeb,
     fetchStats,

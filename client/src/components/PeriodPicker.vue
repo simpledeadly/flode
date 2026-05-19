@@ -72,7 +72,9 @@ const label = computed(() => {
 
 function onDateUpdate(value: any) {
   if (value?.start && value?.end) {
-    emit('update:modelValue', value)
+    const start = startOfDay(value.start)
+    const end = endOfDay(value.end)
+    emit('update:modelValue', { start, end })
   }
 }
 </script>
@@ -122,7 +124,7 @@ function onDateUpdate(value: any) {
         <div class="p-3">
           <DatePicker
             :model-value="modelValue"
-            mode="dateTime"
+            mode="date"
             is-range
             is-dark
             transparent
